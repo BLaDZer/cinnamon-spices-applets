@@ -1,5 +1,11 @@
 const Gio = imports.gi.Gio;
-const GIRepository = imports.gi.GIRepository;
+const UNIX_BLOCK_SIZE = 512;
+
+const {
+  getDiskStats,
+  getDeviceList,
+  loadBlockDeviceList
+} = require("disks");
 
 let _, tryFn, GTop;
 if (typeof require !== 'undefined') {
@@ -265,6 +271,7 @@ NetDataProvider.prototype = {
         }
         devices[i] = devices[i].get_iface();
       }
+
       if (this.disabledDevices.indexOf(devices[i]) === -1) {
         GTop.glibtop_get_netload(this.gtop, devices[i]);
         this.currentReadings.push({
@@ -317,7 +324,6 @@ DiskDataProvider.prototype = {
     this.disabledDevices = [];
     this.currentReadings = [];
     this.lastUpdatedTime = Date.now();
-    this.gtopFSUsage = new GTop.glibtop_fsusage();
     this.volumeMonitor = Gio.VolumeMonitor.get();
     this.signals = [
       this.volumeMonitor.connect('drive-changed', () => this.getDiskDevices()),
@@ -331,6 +337,7 @@ DiskDataProvider.prototype = {
       this.volumeMonitor.connect('volume-removed', () => this.getDiskDevices())
     ];
     this.mounts = this.volumeMonitor.get_mounts();
+
     this.getDiskDevices();
     this.getDiskRW();
   },
@@ -348,6 +355,7 @@ DiskDataProvider.prototype = {
     for (let i = 0, len = this.currentReadings.length; i < len; i++) {
       const newRead = this.currentReadings[i].read - this.currentReadings[i].lastReading[0];
       const newWrite = this.currentReadings[i].write - this.currentReadings[i].lastReading[1];
+
       this.currentReadings[i].lastReading[0] = this.currentReadings[i].read;
       this.currentReadings[i].lastReading[1] = this.currentReadings[i].write;
 
@@ -359,10 +367,13 @@ DiskDataProvider.prototype = {
     }
   },
   getDiskRW: function() {
+    const disksStats = getDiskStats();
+
     for (let i = 0; i < this.currentReadings.length; i++) {
-      GTop.glibtop_get_fsusage(this.gtopFSUsage, this.currentReadings[i].path);
-      this.currentReadings[i].read = this.gtopFSUsage.read * this.gtopFSUsage.block_size;
-      this.currentReadings[i].write = this.gtopFSUsage.write * this.gtopFSUsage.block_size;
+      const diskStats = disksStats[this.currentReadings[i].id];
+
+      this.currentReadings[i].read = diskStats.read * UNIX_BLOCK_SIZE;
+      this.currentReadings[i].write = diskStats.write * UNIX_BLOCK_SIZE;
     }
   },
   setDisabledDevices: function(disabledDevicesList) {
@@ -387,35 +398,22 @@ DiskDataProvider.prototype = {
     return toolTipString;
   },
   getDiskDevices: function() {
-    this.currentReadings = [{
-      id: '/',
-      path: '/',
-      read: 0,
-      write: 0,
-      lastReading: [0, 0],
-      readingRatesList: []
-    }];
+    loadBlockDeviceList();
+    const devices = getDeviceList();
 
-    for (let i = 0; i < this.mounts.length; i++) {
-      if (!this.mounts[i]) {
-        continue;
-      }
-      let deviceName = this.mounts[i].get_name();
-      let drive = this.mounts[i].get_drive();
-      let isDisk =  drive && !drive.is_media_removable()
-      let mountRoot = this.mounts[i].get_root();
-      // device is enabled, and is a disk
-      if (isDisk && this.disabledDevices.indexOf(deviceName) === -1) {
+    this.currentReadings = [];
+
+    for (let deviceName of Object.keys(devices)) {
+      if (deviceName && this.disabledDevices.indexOf(deviceName) === -1) {
         this.currentReadings.push({
           id: deviceName,
-          path: mountRoot.get_path(),
+          path: deviceName,
           read: 0,
           write: 0,
           lastReading: [0, 0],
           readingRatesList: []
         });
       }
-
     }
   },
   destroy: function() {

@@ -115,21 +115,7 @@ Preferences.prototype = {
     this.win.set_resizable(true);
     this.win.set_icon_from_file('./icon.png');
     this.win.connect('destroy', () => Gtk.main_quit()); // quit program when titlebar's x is clicked
-    this.builder.get_object('applyButton').connect(
-      'clicked',
-      Lang.bind(this, function() {
-        this.save();
-        print('SAVE'); // Send the last message to the parent process, Tell it to save these preferences
-        this.win.destroy();
-      })
-    );
 
-    this.builder.get_object('cancelButton').connect(
-      'clicked',
-      Lang.bind(this, function() {
-        this.win.destroy();
-      })
-    );
     this.aboutScalingwin = this.builder.get_object('scalingAboutDialog');
     this.builder.get_object('closeAboutScalingButton').connect(
       'clicked',
@@ -836,4 +822,3 @@ try {
 } catch (e) {
   print(e)
 }
-

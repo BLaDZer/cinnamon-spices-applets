@@ -348,9 +348,7 @@ mcsm.prototype = {
     if (this.childProcessHandler != null) {
       let currentMessage = this.childProcessHandler.getCurrentMessage();
 
-      if (currentMessage === 'SAVE') {
-        this.configSettings.saveSettings();
-      } else if (currentMessage.length !== 0) {
+      if (currentMessage.length !== 0) {
         this.configSettings.updateSettings(currentMessage);
       }
       // Do any required processing when configuration changes
@@ -359,7 +357,6 @@ mcsm.prototype = {
       this.networkGraph.logScale = this.configSettings._prefs.net.logscale;
 
       // check for new drives that are mounted
-      this.configSettings.adjustDevices('net', this.networkProvider.currentReadings);
       this.diskProvider.setDisabledDevices(this.configSettings.getDisabledDevices('disk'));
       this.diskGraph.autoScale = this.configSettings._prefs.disk.autoscale;
       this.diskGraph.logScale = this.configSettings._prefs.disk.logscale;
